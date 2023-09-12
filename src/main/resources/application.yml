@@ -1,0 +1,24 @@
+auto:
+  startup: true
+
+server:
+  port: 8080
+  setRequestHeaderSize: 32768
+
+camel:
+  springboot:
+    name: CamelExercise
+
+# Enable Health-check
+endpoints:
+  enabled: false
+  health:
+    enabled: true
+
+#quickstart:
+  #generateOrderPeriod: 10s
+  #processOrderPeriod: 30s
+
+entries: "//target/tests/entries"
+archieve: "//target/tests/archieve"
+total-time: "//target/tests/total-time"
