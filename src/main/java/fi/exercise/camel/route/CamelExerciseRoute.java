@@ -1,5 +1,6 @@
 package fi.exercise.camel.route;
 
+import org.apache.camel.Exchange;
 import org.apache.camel.LoggingLevel;
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.model.dataformat.JsonLibrary;
@@ -12,6 +13,11 @@ import fi.exercise.camel.processor.TotalTimeProcessor;
 
 @Component
 public class CamelExerciseRoute extends RouteBuilder{
+
+  /*    - Virheenhallinta
+        - JUnit tests   
+        - REST: kirjausten haku aikarajauksella
+        - Korvaa kirjauksen tallennus tiedostotallennuksesta JMS-jonoksi (vaatii Apache ActiveMQ asennuksen) */
     
     @Override
     public void configure() throws Exception {
@@ -19,29 +25,22 @@ public class CamelExerciseRoute extends RouteBuilder{
         restConfiguration()
             .component("servlet")
             .host("localhost")
-            .port("{{server.port}}");
+            .port("{{server.port}}"); // does not apply when using servlet
+    
+        // Publish REST endpoints    /camel/api/v1
+        rest("/api/v1")
+            .get("/total").routeId("rest-total-hours").to("direct:get-totals")
+            .get("/archieve").routeId("rest-entries-archieve").to("direct:get-archieve-list")
+            .post("/worktime").routeId("rest-worktime-entries").consumes("application/json").to("direct:jsonToXml");
 
-        // Publish REST POST endpoint | accepts JSON
-        rest("/worktime")
-            .post()
-            .routeId("rest-worktime-entries")
-            .consumes("application/json")   
-            .to("direct:jsonToXml");
-
-        // Publish REST GET endpoint
-        rest("/archieve")
-            .get()
-            .routeId("rest-entries-archieve")
-            .to("direct:get-archieve-list");
-
-        // Publish REST GET endpoint
-        rest("/total")
-            .get()
-            .routeId("total-hours")
-            .to("direct:get-totals");
+       /*  onException(JsonParseException.class)
+            .handled(true)
+            .setHeader(Exchange.HTTP_RESPONSE_CODE, constant(400))
+            .setHeader(Exchange.CONTENT_TYPE, constant("text/plain"))
+            .setBody().constant("Invalid json data"); */
 
         
-        // Fetch and return total.xml
+        // Fetch and return total.xml ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
         from("direct:get-totals")
             .routeId("get-totals")
 
@@ -60,7 +59,7 @@ public class CamelExerciseRoute extends RouteBuilder{
             .log(LoggingLevel.INFO, "Returning total.xml with added TotalHours element");
 
 
-        // Fetch files from archieve | return list in XML
+        // Fetch files from archieve | return list in XML :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
         from("direct:get-archieve-list")
             .routeId("get-archieve-list")
 
@@ -73,7 +72,7 @@ public class CamelExerciseRoute extends RouteBuilder{
             .log(LoggingLevel.INFO, "Returning list of files in archieve");
              
 
-        // Transform body from JSON to POJO to XML
+        // Transform body from JSON to POJO to XML ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
         from("direct:jsonToXml")
             .routeId("json-to-xml")
 
@@ -95,7 +94,7 @@ public class CamelExerciseRoute extends RouteBuilder{
             .setBody(constant( "Time entry successful"));
 
 
-        // Fetch *-entry.xml -files from {{entries}} folder
+        // Fetch *-entry.xml -files from {{entries}} folder :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
         from("file:{{entries}}?include=.*-entry.xml&delete=true&scheduler=quartz&scheduler.cron=0/25+*+*+*+*+?")
             .routeId("timed-transfer-of-entries")
 
@@ -108,7 +107,7 @@ public class CamelExerciseRoute extends RouteBuilder{
             .to("direct:insert-entry-to-total-time");
         
 
-        // Insert new time entry into total.xml 
+        // Insert new time entry into total.xml  :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
         from("direct:insert-entry-to-total-time")
             .routeId("insert-entry-to-total-time")
 
